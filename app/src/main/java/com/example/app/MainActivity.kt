@@ -1,10 +1,21 @@
 package com.example.app
 
+import android.annotation.SuppressLint
 import android.content.Context
+import android.content.res.Configuration
 import android.os.Bundle
 import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.FiniteAnimationSpec
+import androidx.compose.animation.core.TweenSpec
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.expandIn
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkOut
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -40,12 +51,17 @@ import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.contentColorFor
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextStyle
@@ -78,6 +94,7 @@ import com.example.app.ui.theme.Gray80
 import com.example.app.ui.theme.Green100
 import com.example.app.ui.theme.Green40
 import com.example.app.ui.theme.White100
+import kotlinx.coroutines.delay
 
 class MainActivity : ComponentActivity() {
 
@@ -109,7 +126,7 @@ fun Navigation(db: SQLiteHelper, shp: SharedPreferencesHelper) {
     val navController = rememberNavController()
     NavHost(
         navController = navController,
-        startDestination = "Auth"
+        startDestination = "Splash"
     ) {
         composable(route = "Todos") {
             TodoFragment(navController, db, shp)
@@ -125,6 +142,9 @@ fun Navigation(db: SQLiteHelper, shp: SharedPreferencesHelper) {
         }
         composable(route = "Reg") {
             RegFragment(navController, db, shp)
+        }
+        composable(route = "Splash") {
+            SplashScreen(navController)
         }
     }
 }
@@ -236,10 +256,10 @@ fun ButtonSample(text: String, onValidate: () -> Unit) {
 
 @Composable
 fun RegFormColumn(navController: NavController, db: SQLiteHelper, shp: SharedPreferencesHelper) {
-    var emailState = remember { TextFieldState() }
-    var loginState = remember { TextFieldState() }
-    var passwordState = remember { TextFieldState() }
-    var confPasswordState = remember { TextFieldState() }
+    val emailState = remember { TextFieldState() }
+    val loginState = remember { TextFieldState() }
+    val passwordState = remember { TextFieldState() }
+    val confPasswordState = remember { TextFieldState() }
 
     Column(
         modifier = Modifier
@@ -280,8 +300,8 @@ fun RegFormColumn(navController: NavController, db: SQLiteHelper, shp: SharedPre
 
 @Composable
 fun AuthFormColumn(navController: NavController, db: SQLiteHelper, shp: SharedPreferencesHelper) {
-    var loginState = remember { TextFieldState() }
-    var passwordState = remember { TextFieldState() }
+    val loginState = remember { TextFieldState() }
+    val passwordState = remember { TextFieldState() }
 
     Column(
         modifier = Modifier
@@ -661,9 +681,9 @@ fun TodoButtonWrapper(id: Int, navController: NavController, db: SQLiteHelper) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddTodoDialog(setShowDialog: (Boolean) -> Unit, navController: NavController, db: SQLiteHelper, shp: SharedPreferencesHelper) {
-    var nameState = remember { TextFieldState() }
-    var descrState = remember { TextFieldState() }
-    var deadlineState = remember { TextFieldState() }
+    val nameState = remember { TextFieldState() }
+    val descrState = remember { TextFieldState() }
+    val deadlineState = remember { TextFieldState() }
 
 
     Dialog(onDismissRequest = { setShowDialog(false) }) {
@@ -709,5 +729,32 @@ fun AddTodoDialog(setShowDialog: (Boolean) -> Unit, navController: NavController
                 }
             }
         }
+    }
+}
+
+
+@Composable
+fun SplashScreen(navController: NavController) {
+    val scale by animateFloatAsState(
+        targetValue = if (LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE) 1.5f else 1f,
+        animationSpec = TweenSpec(durationMillis = 1000)
+    )
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .graphicsLayer(scaleX = scale, scaleY = scale)
+    ) {
+        Image(
+            painter = painterResource(id = R.drawable.splash),
+            contentDescription = null,
+            contentScale = ContentScale.FillBounds,
+            modifier = Modifier.fillMaxSize()
+        )
+    }
+
+    LaunchedEffect(Unit) {
+        delay(2000)
+        navController.navigate("Auth")
     }
 }
