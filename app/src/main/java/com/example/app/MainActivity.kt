@@ -1,34 +1,36 @@
 package com.example.app
 
-import android.content.ContentValues
-import android.graphics.Paint.Align
+import android.content.Context
 import android.os.Bundle
-import android.provider.BaseColumns
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.ClickableText
-import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.BottomAppBar
-import androidx.compose.material3.BottomAppBarDefaults
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
-import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -47,18 +49,29 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.navigation.NavController
-import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import com.example.app.data.TextFieldState
 import com.example.app.data.Todo
-import com.example.app.database.FeedReaderDbHelper
+import com.example.app.data.Variables
+import com.example.app.database.SQLiteHelper
+import com.example.app.database.SharedPreferencesHelper
+import com.example.app.database.SqliteService
+import com.example.app.helper.AddFormValidation
+import com.example.app.helper.AuthValidation
+import com.example.app.helper.RegValidation
 import com.example.app.ui.theme.AppTheme
+import com.example.app.ui.theme.Gray00
+import com.example.app.ui.theme.Gray10
 import com.example.app.ui.theme.Gray100
+import com.example.app.ui.theme.Gray20
 import com.example.app.ui.theme.Gray30
 import com.example.app.ui.theme.Gray40
 import com.example.app.ui.theme.Gray80
@@ -67,8 +80,16 @@ import com.example.app.ui.theme.Green40
 import com.example.app.ui.theme.White100
 
 class MainActivity : ComponentActivity() {
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        val dbHelper = SqliteService(this)
+        val db = SQLiteHelper(dbHelper)
+
+        val sharedPref = getSharedPreferences("my_prefs", Context.MODE_PRIVATE)
+        val shp = SharedPreferencesHelper(sharedPref)
+
         setContent {
             AppTheme {
                 // A surface container using the 'background' color from the theme
@@ -76,7 +97,7 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    Navigation()
+                    Navigation(db, shp)
                 }
             }
         }
@@ -84,32 +105,32 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun Navigation() {
+fun Navigation(db: SQLiteHelper, shp: SharedPreferencesHelper) {
     val navController = rememberNavController()
     NavHost(
         navController = navController,
-        startDestination = "Todos"
+        startDestination = "Auth"
     ) {
         composable(route = "Todos") {
-            TodoFragment(navController)
+            TodoFragment(navController, db, shp)
         }
         composable(route = "Recent") {
             RecentFragment()
         }
         composable(route = "Done") {
-            DoneFragment()
+            DoneFragment(navController, db, shp)
         }
         composable(route = "Auth") {
-            AuthFragment(navController)
+            AuthFragment(navController, db, shp)
         }
         composable(route = "Reg") {
-            RegFragment(navController)
+            RegFragment(navController, db, shp)
         }
     }
 }
 
 @Composable
-fun TodoFragment(navController: NavController) {
+fun AuthFragment(navController: NavController, db: SQLiteHelper, shp: SharedPreferencesHelper) {
     Column(
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -117,26 +138,7 @@ fun TodoFragment(navController: NavController) {
             .fillMaxSize()
             .background(Gray100)
     ) {
-        BottomAppBarFragment(navController)
-    }
-}
-
-@Composable
-fun RecentFragment() {}
-
-@Composable
-fun DoneFragment() {}
-
-@Composable
-fun AuthFragment(navController: NavController) {
-    Column(
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Gray100)
-    ) {
-        AuthFormColumn()
+        AuthFormColumn(navController, db, shp)
         Row(
             horizontalArrangement = Arrangement.Center,
             modifier = Modifier
@@ -161,7 +163,7 @@ fun AuthFragment(navController: NavController) {
 }
 
 @Composable
-fun RegFragment(navController: NavController) {
+fun RegFragment(navController: NavController, db: SQLiteHelper, shp: SharedPreferencesHelper) {
     Column(
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -169,7 +171,7 @@ fun RegFragment(navController: NavController) {
             .fillMaxSize()
             .background(Gray100)
     ) {
-        RegFormColumn()
+        RegFormColumn(navController, db, shp)
         Row(
             horizontalArrangement = Arrangement.Center,
             modifier = Modifier
@@ -195,13 +197,12 @@ fun RegFragment(navController: NavController) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun TextFieldSample(placeholder: String) {
-    var text = remember { mutableStateOf("") }
+fun TextFieldSample(placeholder: String, textState : TextFieldState = remember { TextFieldState() } ) {
 
     TextField(
-        value = text.value,
+        value = textState.text,
         shape = RoundedCornerShape(20.dp),
-        onValueChange = { newValue -> text.value = newValue},
+        onValueChange = { textState.text = it},
         placeholder = { Text(text = placeholder) },
         colors = TextFieldDefaults.textFieldColors(
             containerColor = Gray40,
@@ -216,9 +217,9 @@ fun TextFieldSample(placeholder: String) {
 }
 
 @Composable
-fun ButtonSample(text: String) {
+fun ButtonSample(text: String, onValidate: () -> Unit) {
     Button(
-        onClick = {},
+        onClick = onValidate,
         shape = RoundedCornerShape(20),
         colors = ButtonDefaults.buttonColors(Green100),
         modifier = Modifier
@@ -234,7 +235,12 @@ fun ButtonSample(text: String) {
 }
 
 @Composable
-fun RegFormColumn() {
+fun RegFormColumn(navController: NavController, db: SQLiteHelper, shp: SharedPreferencesHelper) {
+    var emailState = remember { TextFieldState() }
+    var loginState = remember { TextFieldState() }
+    var passwordState = remember { TextFieldState() }
+    var confPasswordState = remember { TextFieldState() }
+
     Column(
         modifier = Modifier
             .width(280.dp)
@@ -255,16 +261,28 @@ fun RegFormColumn() {
                 .align(alignment = Alignment.CenterHorizontally)
                 .padding(bottom = 15.dp)
         )
-        TextFieldSample("Email")
-        TextFieldSample("Login")
-        TextFieldSample("password")
-        TextFieldSample("Confirm password")
-        ButtonSample("Sign up")
+        TextFieldSample("Email", emailState)
+        TextFieldSample("Login", loginState)
+        TextFieldSample("Password", passwordState)
+        TextFieldSample("Confirm password", confPasswordState)
+        ButtonSample("Sign up", onValidate = {
+            if (RegValidation(emailState.text, loginState.text, passwordState.text, confPasswordState.text).validate()) {
+                val reg = db.registerUser(emailState.text, loginState.text, passwordState.text)
+                if (reg.first) {
+                    navController.navigate("Todos")
+                    shp.setCurrentUser(reg.second)
+                    println(shp.getCurrentUser())
+                }
+            }
+        })
     }
 }
 
 @Composable
-fun AuthFormColumn() {
+fun AuthFormColumn(navController: NavController, db: SQLiteHelper, shp: SharedPreferencesHelper) {
+    var loginState = remember { TextFieldState() }
+    var passwordState = remember { TextFieldState() }
+
     Column(
         modifier = Modifier
             .width(280.dp)
@@ -285,53 +303,143 @@ fun AuthFormColumn() {
                 .align(alignment = Alignment.CenterHorizontally)
                 .padding(bottom = 15.dp)
         )
-        TextFieldSample("Login")
-        TextFieldSample("password")
-        ButtonSample("Sign in")
+        TextFieldSample("Login", loginState)
+        TextFieldSample("password", passwordState)
+        ButtonSample("Sign in", onValidate = {
+            if (AuthValidation(loginState.text, passwordState.text).validate()) {
+                val auth = db.authorizeUser(loginState.text, passwordState.text)
+                if (auth.first) {
+                    navController.navigate("Todos")
+                    shp.setCurrentUser(auth.second)
+                }
+            }
+        })
     }
 }
 
 @Composable
-fun BottomAppBarFragment(navController: NavController) {
+fun TodoFragment(navController: NavController, db: SQLiteHelper, shp: SharedPreferencesHelper) {
+    val paddingTopModifier = Modifier.padding(top = 40.dp)
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Gray100)
+    ) {
+        Row(modifier = paddingTopModifier) {
+            Text(
+                text = "My todos",
+                style = TextStyle(
+                    color = Green40,
+                    fontSize = 28.sp,
+                    fontWeight = FontWeight(600)
+                )
+            )
+        }
+        Row(modifier = paddingTopModifier) {
+            TodosContainerLayout(db.getUndoneTodos(shp.getCurrentUser()), navController, db)
+        }
+    }
+    Row(
+        verticalAlignment = Alignment.Bottom,
+        modifier = Modifier.fillMaxHeight()) {
+        BottomAppBarLayout(navController, db, shp)
+    }
+}
+
+@Composable
+fun RecentFragment() {}
+
+@Composable
+fun DoneFragment(navController: NavController, db: SQLiteHelper, shp: SharedPreferencesHelper) {
+    val paddingTopModifier = Modifier.padding(top = 40.dp)
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Gray100)
+    ) {
+        Row(modifier = paddingTopModifier) {
+            Text(
+                text = "Done todos",
+                style = TextStyle(
+                    color = Green40,
+                    fontSize = 28.sp,
+                    fontWeight = FontWeight(600)
+                )
+            )
+        }
+        Row(modifier = paddingTopModifier) {
+            DoneTodosContainerLayout(db.getDoneTodos(shp.getCurrentUser()), navController, db)
+        }
+    }
+    Row(
+        verticalAlignment = Alignment.Bottom,
+        modifier = Modifier.fillMaxHeight()) {
+        BottomAppBarLayout(navController, db, shp)
+    }
+}
+
+@Composable
+fun BottomAppBarLayout(navController: NavController, db: SQLiteHelper, shp: SharedPreferencesHelper) {
+    val showDialog =  remember { mutableStateOf(false) }
+
+    if(showDialog.value)
+        AddTodoDialog(setShowDialog = {
+            showDialog.value = it
+        }, navController, db, shp)
+
     BottomAppBar(
-        containerColor = Gray80,
-        contentColor = Green100,
-        contentPadding = PaddingValues(all = 5.dp),
-        windowInsets = WindowInsets.navigationBars,
-        actions = {
+        containerColor = Gray80
+    ) {
+        Row(
+            horizontalArrangement = Arrangement.Center,
+            modifier = Modifier
+                .padding(all = 5.dp)
+        ) {
             IconButton(
-                onClick = { },
+                onClick = { navController.navigate("Auth") },
+                modifier = Modifier
+            ) {
+                Icon(
+                    painter = painterResource(R.drawable.logout),
+                    contentDescription = "Recent",
+                    modifier = Modifier
+                        .width(25.dp)
+                        .height(25.dp)
+                )
+            }
+            Spacer(Modifier.weight(1f, true))
+            IconButton(
+                onClick = { navController.navigate("Todos") },
                 modifier = Modifier
             ) {
                 Icon(
                     painter = painterResource(R.drawable.todos_menu),
-                    contentDescription = "Todos"
+                    contentDescription = "Todos",
+                    modifier = Modifier
+                        .width(25.dp)
+                        .height(25.dp)
                 )
             }
+            Spacer(Modifier.weight(1f, true))
             IconButton(
-                onClick = { },
-                modifier = Modifier
-            ) {
-                Icon(
-                    painter = painterResource(R.drawable.recent_menu),
-                    contentDescription = "Recent"
-                )
-            }
-            IconButton(
-                onClick = { },
+                onClick = { navController.navigate("Done") },
                 modifier = Modifier
             ) {
                 Icon(
                     painter = painterResource(R.drawable.done_menu),
-                    contentDescription = "Done"
+                    contentDescription = "Done",
+                    modifier = Modifier
+                        .width(25.dp)
+                        .height(25.dp)
                 )
             }
-        },
-        floatingActionButton = {
+            Spacer(Modifier.weight(1f, true))
             FloatingActionButton(
-                onClick = {  },
+                onClick = { showDialog.value = true },
                 containerColor = Gray40,
-                elevation = FloatingActionButtonDefaults.bottomAppBarFabElevation()
+                contentColor = Green40
             ) {
                 Icon(
                     painter = painterResource(R.drawable.plus),
@@ -342,15 +450,264 @@ fun BottomAppBarFragment(navController: NavController) {
                 )
             }
         }
-    )
+    }
+}
+
+@Composable
+fun TodosContainerLayout(todos: ArrayList<Todo>, navController: NavController, db: SQLiteHelper) {
+    val lazyListState: LazyListState = rememberLazyListState()
+    Column(modifier = Modifier.width(350.dp).height(490.dp)) {
+        LazyColumn(modifier = Modifier.fillMaxWidth(), state = lazyListState) {
+            items (todos) { todo ->
+                TodoCardLayout(todo.id, todo.name, todo.descr, todo.deadline, navController, db)
+            }
+        }
+    }
+}
+
+@Composable
+fun DoneTodosContainerLayout(todos: ArrayList<Todo>, navController: NavController, db: SQLiteHelper) {
+    val lazyListState: LazyListState = rememberLazyListState()
+    Column(modifier = Modifier.width(350.dp).height(490.dp)) {
+        LazyColumn(modifier = Modifier.fillMaxWidth(), state = lazyListState) {
+            items (todos) { todo ->
+                DoneTodoCardLayout(todo.id, todo.name, todo.descr, todo.deadline, navController, db)
+            }
+        }
+    }
+}
+
+@Composable
+fun TodoCardLayout(id: Int, name: String, descr: String, deadlines: String, navController: NavController, db: SQLiteHelper) {
+    val paddingModifier  = Modifier.padding(20.dp)
+    val paddingVertical = Modifier.padding(vertical = 15.dp)
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 10.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = Gray20,
+        ),
+    ) {
+        Column(modifier = paddingModifier) {
+            Text(
+                text = name,
+                style = TextStyle(
+                    color = White100,
+                    fontSize = 24.sp,
+                    fontWeight = FontWeight(400)
+                )
+            )
+            Text(
+                text = descr,
+                style = TextStyle(
+                    color = Gray10,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight(400)
+                ),
+                modifier = paddingVertical
+            )
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
+                Icon(
+                    painter = painterResource(R.drawable.deadlines),
+                    contentDescription = "Todos",
+                    modifier = Modifier
+                        .width(20.dp)
+                        .height(20.dp)
+                )
+                Spacer(Modifier.padding(horizontal = 5.dp))
+                Text(
+                    text = "Deadline",
+                    style = TextStyle(
+                        color = Gray00,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight(400)
+                    )
+                )
+                Spacer(Modifier.weight(1f, true))
+                Text(
+                    text = deadlines,
+                    style = TextStyle(
+                        color = Green100,
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight(400)
+                    )
+                )
+            }
+            TodoButtonWrapper(id, navController, db)
+        }
+    }
+}
+
+@Composable
+fun DoneTodoCardLayout(id: Int, name: String, descr: String, deadlines: String, navController: NavController, db: SQLiteHelper) {
+    val paddingModifier  = Modifier.padding(20.dp)
+    val paddingVertical = Modifier.padding(vertical = 15.dp)
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 10.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = Gray20,
+        ),
+    ) {
+        Column(modifier = paddingModifier) {
+            Text(
+                text = name,
+                style = TextStyle(
+                    color = White100,
+                    fontSize = 24.sp,
+                    fontWeight = FontWeight(400)
+                )
+            )
+            Text(
+                text = descr,
+                style = TextStyle(
+                    color = Gray10,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight(400)
+                ),
+                modifier = paddingVertical
+            )
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
+                Icon(
+                    painter = painterResource(R.drawable.deadlines),
+                    contentDescription = "Todos",
+                    modifier = Modifier
+                        .width(20.dp)
+                        .height(20.dp)
+                )
+                Spacer(Modifier.padding(horizontal = 5.dp))
+                Text(
+                    text = "Deadline",
+                    style = TextStyle(
+                        color = Gray00,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight(400)
+                    )
+                )
+                Spacer(Modifier.weight(1f, true))
+                Text(
+                    text = deadlines,
+                    style = TextStyle(
+                        color = Green100,
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight(400)
+                    )
+                )
+            }
+            Button(
+                onClick = {
+                    db.deleteTodo(id)
+                    navController.navigate("Done")
+                          },
+                shape = RoundedCornerShape(20),
+                colors = ButtonDefaults.buttonColors(Green40),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 15.dp)
+            ) {
+                Text(
+                    text = "Delete",
+                    color = Green100,
+                    modifier = Modifier
+                        .padding(all = 5.dp)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun TodoButtonWrapper(id: Int, navController: NavController, db: SQLiteHelper) {
+    Row(modifier = Modifier.padding(top = 15.dp)) {
+        Button(
+            onClick = {
+                db.deleteTodo(id)
+                navController.navigate("Todos")
+            },
+            shape = RoundedCornerShape(20),
+            colors = ButtonDefaults.buttonColors(Green40),
+            modifier = Modifier.width(150.dp)
+        ) {
+            Text(
+                text = "Delete",
+                color = Green100,
+                modifier = Modifier
+                    .padding(all = 5.dp)
+            )
+        }
+        Spacer(Modifier.weight(1f, true))
+        Button(
+            onClick = {
+                db.doneTodo(id)
+                navController.navigate("Todos")
+            },
+            shape = RoundedCornerShape(20),
+            colors = ButtonDefaults.buttonColors(Green100),
+            modifier = Modifier.width(150.dp)
+        ) {
+            Text(
+                text = "Done",
+                color = White100,
+                modifier = Modifier
+                    .padding(all = 5.dp)
+            )
+        }
+    }
 }
 
 
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun AddTodoDialog(setShowDialog: (Boolean) -> Unit, navController: NavController, db: SQLiteHelper, shp: SharedPreferencesHelper) {
+    var nameState = remember { TextFieldState() }
+    var descrState = remember { TextFieldState() }
+    var deadlineState = remember { TextFieldState() }
 
 
+    Dialog(onDismissRequest = { setShowDialog(false) }) {
+        Surface(
+            shape = RoundedCornerShape(15.dp),
+            color = Gray00
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Column(modifier = Modifier.padding(20.dp)) {
+                    Text(
+                        text = "New todo",
+                        style = TextStyle(
+                            fontSize = 24.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Green40
+                        )
+                    )
+                    Spacer(modifier = Modifier.height(20.dp))
+                    TextFieldSample("Name", nameState)
+                    TextFieldSample("Description", descrState)
+                    TextFieldSample("Deadline", deadlineState)
 
-
-
-
-
-
+                    Button(
+                        onClick = {
+                            if (AddFormValidation(nameState.text, descrState.text, deadlineState.text).validation()) {
+                                if (db.createTodo(shp.getCurrentUser(),nameState.text, descrState.text, deadlineState.text)) {
+                                    setShowDialog(false)
+                                    navController.navigate("Todos")
+                                }
+                            }
+                        },
+                        shape = RoundedCornerShape(20),
+                        colors = ButtonDefaults.buttonColors(Green100),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(
+                            text = "Add",
+                            color = White100,
+                            modifier = Modifier
+                                .padding(all = 5.dp)
+                        )
+                    }
+                }
+            }
+        }
+    }
+}

@@ -17,29 +17,8 @@ data class Queries(
                 "${"todo_deadline"} TEXT,"+
                 "${"isDone"} BOOLEAN DEFAULT 0,"+
                 "${"isDeleted"} BOOLEAN DEFAULT 0,"+
-                "${"createdAtTimestamp "} TIMESTAMP,"+
+                "${"createdAtTimestamp "} DEFAULT CURRENT_TIMESTAMP,"+
                 "${"doneAtTimestamp  "} TIMESTAMP)",
-
-    val ON_INSERT_TRIGGER: String =
-        "CREATE TRIGGER check_duplicate_todos\n" +
-                "BEFORE INSERT ON todos\n" +
-                "FOR EACH ROW\n" +
-                "BEGIN\n" +
-                "  IF EXISTS (\n" +
-                "    SELECT 1 FROM todos\n" +
-                "    WHERE\n" +
-                "      user_id = NEW.user_id\n" +
-                "      AND todo_name = NEW.todo_name\n" +
-                "      AND todo_descr = NEW.todo_descr\n" +
-                "      AND todo_deadline = NEW.todo_deadline\n" +
-                "      AND isDone = NEW.isDone\n" +
-                "      AND isDeleted = NEW.isDeleted\n" +
-                "      AND createdAtTimestamp = NEW.createdAtTimestamp\n" +
-                "  )\n" +
-                "  THEN\n" +
-                "    SELECT RAISE(ABORT, 'Duplicate todo found');\n" +
-                "  END IF;\n" +
-                "END;\n",
 
     val LOAD_TEST_TODOS: String =
         "INSERT INTO todos (user_id, todo_name, todo_descr, todo_deadline, isDone, isDeleted, createdAtTimestamp) VALUES\n" +
@@ -64,6 +43,15 @@ data class Queries(
                 "(1, 'Сходить на экскурсию', 'Осмотр достопримечательностей города', '11-05-2023', false, false, '2023-04-28 12:15:20.240'),\n" +
                 "(1, 'Посетить театр', 'Купить билеты на спектакль', '12-05-2023', false, false, '2023-04-28 12:15:20.240'),\n" +
                 "(1, 'Помыть машину', 'Очистить машину от грязи', '13-05-2023', false, false, '2023-04-28 12:15:20.240'),\n" +
-                "(1, 'Сходить на рыбалку', 'Собрать рыболовные снасти', '14-05-2023', false, false, '2023-04-28 12:15:20.240');\n"
+                "(1, 'Сходить на рыбалку', 'Собрать рыболовные снасти', '14-05-2023', false, false, '2023-04-28 12:15:20.240');\n",
 
+    val LOAD_TEST_USERS: String =
+        "INSERT INTO users (user_login, user_email, user_password) VALUES\n" +
+                "('user_1', 'user1@email.com', '123'),\n" +
+                "('user_2', 'user2@email.com', '123'),\n" +
+                "('user_3', 'user3@email.com', '123');\n",
+
+
+    val SQL_DELETE_USERS: String = "DROP TABLE IF EXISTS users",
+    val SQL_DELETE_TODOS: String = "DROP TABLE IF EXISTS todos"
 )
